@@ -1,0 +1,107 @@
+<html>
+  <head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+  </head>
+  <body>
+    </html>Demo application to fetch all any character in a movie in which Luke Skywalker appeared.
+    <br />
+    <br />
+    <button id="fetchRest">Fetch with REST</button>
+    <br />
+    <div id="restExecTime"></div>
+    <br />
+    <br />
+    <button id="fetchGraphQL">Fetch with GraphQL</button>
+    <br />
+    <div id="graphQLExecTime"></div>
+    <br />
+    <br />
+    <div id="output"></div>
+
+
+
+    <script>
+      var people = []
+
+      function fetchAsync(url) {
+        return new Promise((resolve, reject) => {
+          $.get(url, data => {
+            var films = data.films
+            resolve(data)
+          })
+        })
+      }
+
+      async function getFilmCharacters(film) {
+        var film = await fetchAsync(film)
+        var promises = []
+        for (var character of film.characters) {
+          var promise = $.get(character, data => {
+            people.push(data.name)
+          })
+          promises.push(promise)
+        }
+        await Promise.all(promises)
+      }
+
+      $("#fetchRest").click(async () => {
+        people = []
+        $("#output").html("")
+        $("#restExecTime").html("")
+
+        const start = performance.now();
+
+        var promises = []
+        var luke = await fetchAsync("https://swapi.dev/api/people/1")
+
+        var characters = []
+        var promises = []
+        for (var film of luke.films) {
+          var promise = getFilmCharacters(film)
+          promises.push(promise)
+        }
+        await Promise.all(promises)
+
+        const end = performance.now();
+        people.filter((v, i, a) => a.indexOf(v) === i)
+        $("#output").html(people.join(","))
+        $("#restExecTime").html(`Execution time: ${Math.floor((end - start)/1000)} s`)
+      })
+
+
+      $("#fetchGraphQL").click(async () => {
+
+        $("#output").html("")
+        $("#graphQLExecTime").html("")
+        const start = performance.now();
+        $.ajax({
+          url: "http://localhost:8888/graphql",
+          type: "POST",
+          dataType: "json", // expected format for response
+          contentType: "application/json", // send as JSON
+          data: JSON.stringify({ query: "query MyQuery { person(personID: 1) { name filmConnection { films { characterConnection { characters { name } } } } } }" }),
+
+          complete: function() {
+          },
+
+          success: function(data) {
+            people = []
+            var films = data.data.person.filmConnection.films
+            for (film of films) {
+              for (character of film.characterConnection.characters) {
+                people.push(character.name)
+              }
+            }
+            people.filter((v, i, a) => a.indexOf(v) === i)
+            $("#output").html(people.join(","))
+            const end = performance.now();
+            $("#graphQLExecTime").html(`Execution time: ${((end - start))} ms`)
+          },
+
+          error: function() {
+          },
+        });
+      })
+    </script>
+  </body>
+
